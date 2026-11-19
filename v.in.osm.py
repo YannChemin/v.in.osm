@@ -64,6 +64,73 @@ from grass.script.utils import try_rmdir
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
+# SQL keywords that SQLite rejects as unquoted column names (SQLite 3.46).
+# OSM tags such as "from" and "to" on route relations hit them: v.in.ogr
+# creates the table, but every later table copy (v.split, v.build.polylines,
+# v.clip, ...) writes an unquoted CREATE TABLE and fails, so the map loses its
+# attributes. Such fields are renamed with a trailing underscore.
+SQL_RESERVED = frozenset(
+    {
+        "add",
+        "all",
+        "alter",
+        "and",
+        "as",
+        "autoincrement",
+        "between",
+        "case",
+        "check",
+        "collate",
+        "commit",
+        "create",
+        "default",
+        "deferrable",
+        "delete",
+        "distinct",
+        "drop",
+        "else",
+        "escape",
+        "except",
+        "exists",
+        "foreign",
+        "from",
+        "group",
+        "having",
+        "in",
+        "index",
+        "insert",
+        "intersect",
+        "into",
+        "is",
+        "isnull",
+        "join",
+        "limit",
+        "not",
+        "nothing",
+        "notnull",
+        "null",
+        "on",
+        "or",
+        "order",
+        "primary",
+        "references",
+        "returning",
+        "select",
+        "set",
+        "table",
+        "then",
+        "to",
+        "transaction",
+        "union",
+        "unique",
+        "update",
+        "using",
+        "values",
+        "when",
+        "where",
+    }
+)
+
 
 class OsmImporter:
     def __init__(self):
@@ -118,14 +185,53 @@ class OsmImporter:
             # GRASS versions without the format option.
             return gs.read_command("g.proj", flags="wf")
 
-    def _reproject(self, input_, table, where):
+    def _reservedFields(self, input_, table):
+        """Return the field names of the layer that are SQL reserved words."""
+        from osgeo import ogr
+
+        ogr.UseExceptions()
+        # Keep the data source referenced: the layer dies with it.
+        ds = ogr.Open(input_)
+        defn = ds.GetLayerByName(table).GetLayerDefn()
+        names = [defn.GetFieldDefn(i).GetName() for i in range(defn.GetFieldCount())]
+        return [name for name in names if name.lower() in SQL_RESERVED]
+
+    def _renameFields(self, gpkg, table, fields):
+        """Rename the given fields of the GeoPackage layer to <name>_."""
+        from osgeo import ogr
+
+        ogr.UseExceptions()
+        ds = ogr.Open(gpkg, update=1)
+        layer = ds.GetLayerByName(table)
+        defn = layer.GetLayerDefn()
+        for name in fields:
+            new_name = name + "_"
+            if defn.GetFieldIndex(new_name) >= 0:
+                gs.fatal(
+                    _(
+                        "Cannot rename column <{}> of layer <{}>: <{}> already exists"
+                    ).format(name, table, new_name)
+                )
+            idx = defn.GetFieldIndex(name)
+            field = ogr.FieldDefn(new_name, defn.GetFieldDefn(idx).GetType())
+            layer.AlterFieldDefn(idx, field, ogr.ALTER_NAME_FLAG)
+        ds = None
+        gs.warning(
+            _("Renamed SQL reserved column names in layer <{}>: {}").format(
+                table, ", ".join(f"{n} -> {n}_" for n in fields)
+            )
+        )
+
+    def _extract(self, input_, table, where, reproject, rename):
         """Extract the layer (with the attribute filter) into a temporary
-        GeoPackage in the current project's CRS; return its path."""
+        GeoPackage, in the current project's CRS if reproject is True, with
+        the fields in rename renamed; return its path."""
         from osgeo import gdal
 
         gdal.UseExceptions()
         gpkg = gs.tempfile(create=False) + ".gpkg"
         self.tmp_files.append(gpkg)
+        kwargs = {"dstSRS": self._projectWkt(), "reproject": True} if reproject else {}
         try:
             gdal.VectorTranslate(
                 gpkg,
@@ -134,11 +240,12 @@ class OsmImporter:
                 layers=[table],
                 layerName=table,
                 where=where or None,
-                dstSRS=self._projectWkt(),
-                reproject=True,
+                **kwargs,
             )
         except RuntimeError as e:
-            gs.fatal(_("Reprojection of layer <{}> failed: {}").format(table, e))
+            gs.fatal(_("Extraction of layer <{}> failed: {}").format(table, e))
+        if rename:
+            self._renameFields(gpkg, table, rename)
         return gpkg
 
     def main(self, options, flags):
@@ -177,13 +284,22 @@ class OsmImporter:
             )
 
         source, where = options["input"], options["where"]
+        rename = self._reservedFields(options["input"], options["table"])
         if not flags["o"]:
             gs.message(
                 _("Reprojecting <{}> to the current project...").format(
                     options["table"]
                 )
             )
-            source = self._reproject(options["input"], options["table"], where)
+            source = self._extract(
+                options["input"], options["table"], where, True, rename
+            )
+            where = ""
+        elif rename:
+            # No reprojection asked for, but the columns still need new names.
+            source = self._extract(
+                options["input"], options["table"], where, False, rename
+            )
             where = ""
 
         # process

@@ -23,6 +23,12 @@ Line layers are split at every vertex and rebuilt into polylines
 Reprojection is done with GDAL (a temporary GeoPackage in the project CRS)
 before the import.
 
+Columns whose name is an SQL keyword are renamed with a trailing underscore,
+and a warning lists them. OSM route relations carry the tags `from` and `to`,
+for example, which are imported as `from_` and `to_`. With the original names
+the attribute table is lost when the map is copied (by *v.split*,
+*v.build.polylines* or a later *v.clip*). The rename also applies with **-o**.
+
 ## EXAMPLES
 
 Import from PostgreSQL DB:

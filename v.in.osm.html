@@ -26,6 +26,14 @@ directly with <em>v.in.ogr</em> so that multipolygon rings form areas.
 Reprojection is done with GDAL (a temporary GeoPackage in the project CRS)
 before the import.
 
+<p>
+Columns whose name is an SQL keyword are renamed with a trailing underscore,
+and a warning lists them. OSM route relations carry the tags <code>from</code>
+and <code>to</code>, for example, which are imported as <code>from_</code> and
+<code>to_</code>. With the original names the attribute table is lost when the
+map is copied (by <em>v.split</em>, <em>v.build.polylines</em> or a later
+<em>v.clip</em>). The rename also applies with <b>-o</b>.
+
 <h2>EXAMPLES</h2>
 
 Import from PostgreSQL DB:
