@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# GRASS addon build output
+build/
+dist/
+*.egg-info/
+docs/html/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
