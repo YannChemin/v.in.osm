@@ -128,18 +128,18 @@ pytest tests/
 
 ## Origin
 
-This is a standalone copy of `src/vector/v.in.osm` from
+This is a personal working copy of `src/vector/v.in.osm` from
 [OSGeo/grass-addons](https://github.com/OSGeo/grass-addons), where the tool
-belongs to the `vector` category. Upstream development happens there — changes
-made here should go back as a pull request against that repository.
+belongs to the `vector` category. It is maintained here for local use and is
+not intended for the official addons repository.
 
 The module is based on Stepan Turek's original *v.in.osm* (© 2016), with `-l`
 layer listing by Markus Neteler; the geometry-aware import and the GDAL
-reprojection were added in
+reprojection came in with
 [grass-addons PR #1863](https://github.com/OSGeo/grass-addons/pull/1863).
 
 ## License
 
-The module header states GPL-2.0-or-later, the GRASS convention. The
-`LICENSE` file currently in this repository is the Unlicense text and does not
-match it; it should be replaced with GPL-2.0-or-later.
+Released under the Unlicense (public domain) — see [`LICENSE`](LICENSE). The
+script header keeps the GPL-2.0-or-later notice it carries upstream as GRASS
+addon code.
