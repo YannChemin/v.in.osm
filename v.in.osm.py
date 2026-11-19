@@ -21,7 +21,8 @@ This program is free software under the GNU General Public License
 # %end
 
 # %option G_OPT_F_BIN_INPUT
-# % description: Table file to be imported or DB connection string
+# % label: OSM data source
+# % description: OpenStreetMap file (.osm, .osm.pbf) or database connection string
 # %end
 
 # %option G_OPT_V_OUTPUT
@@ -33,13 +34,16 @@ This program is free software under the GNU General Public License
 # %end
 
 # %option G_OPT_V_TYPE
-# % description: Name for output vector map
+# % label: Feature types to import
+# % description: Types that do not match the layer geometry are ignored (polygon layers need boundary and centroid)
 # % options: point,line,boundary,centroid
 # % answer: point,line,boundary,centroid
 # % required: no
 # %end
 
 # %option G_OPT_DB_TABLE
+# % label: Name of OGR layer to import
+# % description: Layer of the data source, e.g. lines, multipolygons or planet_osm_line (list layers with -l)
 # %end
 
 # %flag
